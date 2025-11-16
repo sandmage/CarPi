@@ -21,7 +21,6 @@
             --shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.3);
         }
-
         /* Neon theme overrides */
         body.theme-neon {
             background: radial-gradient(circle at top left, #0f172a 0%, #020617 40%, #000000 100%);
@@ -43,7 +42,6 @@
                 #f97316 75%,
                 #ef4444 100%);
         }
-
         * {
             margin: 0;
             padding: 0;
@@ -105,7 +103,6 @@
             align-items: center;
             gap: 1rem;
         }
-
         .status-badges {
             display: flex;
             gap: 0.5rem;
@@ -139,10 +136,9 @@
         }
         
         @keyframes pulse {
-            0%, 100 { opacity: 1; transform: scale(1); }
+            0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.6; transform: scale(1.2); }
         }
-
         .theme-toggle-btn {
             padding: 0.4rem 0.9rem;
             border-radius: 999px;
@@ -243,7 +239,6 @@
             align-items: center;
             gap: 0.5rem;
         }
-
         .vu-led {
             width: 10px;
             height: 10px;
@@ -510,13 +505,11 @@
         .btn-block {
             width: 100%;
         }
-
         .btn-chip {
             padding: 0.4rem 0.8rem;
             border-radius: 999px;
             font-size: 0.8rem;
         }
-
         .btn-chip.active {
             background: rgba(34,197,94,0.2);
             border-color: #22c55e;
@@ -576,14 +569,12 @@
             height: 250px;
             margin-top: 1rem;
         }
-
         .chart-row {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 1.25rem;
             margin-top: 1.25rem;
         }
-
         .chart-box-label {
             font-size: 0.85rem;
             opacity: 0.7;
@@ -622,26 +613,22 @@
             opacity: 0.6;
             margin-left: 0.25rem;
         }
-
         .channel-controls {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
         }
-
         .channel-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 0.75rem;
         }
-
         .channel-row-label {
             font-size: 0.9rem;
             font-weight: 500;
             opacity: 0.85;
         }
-
         .channel-row-buttons {
             display: flex;
             gap: 0.5rem;
@@ -657,7 +644,6 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
-
             .header-right {
                 width: 100%;
                 justify-content: space-between;
@@ -938,7 +924,6 @@
                         </div>
                         <p class="control-help">Delay before release phase</p>
                     </div>
-
                     <div class="control-group">
                         <label class="control-label">Channel Controls</label>
                         <div class="channel-controls">
@@ -1029,7 +1014,6 @@
                 <div class="chart-container">
                     <canvas id="performanceChart"></canvas>
                 </div>
-
                 <div class="chart-row">
                     <div>
                         <div class="chart-box-label">Oscilloscope (Output Level History)</div>
@@ -1055,6 +1039,9 @@
                     <button class="btn btn-secondary" onclick="autoconnectAudio()">
                         🔌 Reconnect Audio
                     </button>
+                    <button class="btn btn-secondary" onclick="updateCarPi()">
+                        ⬆️ Update from Git
+                    </button>
                     <button class="btn btn-danger" onclick="resetSettings()">
                         ⚠️ Reset to Defaults
                     </button>
@@ -1065,7 +1052,6 @@
     
     <script>
         console.log('Audio Ducker UI script loaded');
-
         // WebSocket connection
         const socket = io({
             transports: ['websocket'],
@@ -1082,7 +1068,6 @@
         let performanceChart = null;
         let oscilloscopeChart = null;
         let spectrumChart = null;
-
         let performanceData = {
             labels: [],
             datasets: [{
@@ -1093,7 +1078,6 @@
                 tension: 0.4
             }]
         };
-
         let oscilloscopeData = {
             labels: [],
             datasets: [{
@@ -1104,7 +1088,6 @@
                 tension: 0.25
             }]
         };
-
         let spectrumData = {
             labels: ['Sub', 'Bass', 'Low Mid', 'Mid', 'High Mid', 'Presence', 'Brilliance', 'Air'],
             datasets: [{
@@ -1116,7 +1099,6 @@
                 ]
             }]
         };
-
         // Peak-hold state
         const peakHold = {
             primary: { value: -100, lastUpdate: 0 },
@@ -1148,10 +1130,8 @@
             initializeCharts();
             initTheme();
             loadSettings();
-
             // Poll metrics & status as a fallback in case WebSocket updates are flaky
             setInterval(fetchMetricsAndStatus, 250); // 4 times per second is plenty
-
             const themeToggle = document.getElementById('theme-toggle');
             if (themeToggle) {
                 themeToggle.addEventListener('click', toggleTheme);
@@ -1201,9 +1181,7 @@
                             val;
                         display.textContent = value + config.suffix;
                     };
-
                     updateDisplay(slider.value);
-
                     slider.addEventListener('input', (e) => {
                         updateDisplay(e.target.value);
                     });
@@ -1238,7 +1216,6 @@
                     }
                 }
             });
-
             const oscCtx = document.getElementById('oscilloscopeChart').getContext('2d');
             oscilloscopeChart = new Chart(oscCtx, {
                 type: 'line',
@@ -1264,7 +1241,6 @@
                     }
                 }
             });
-
             const specCtx = document.getElementById('spectrumChart').getContext('2d');
             spectrumChart = new Chart(specCtx, {
                 type: 'bar',
@@ -1321,7 +1297,6 @@
         // Update UI Functions
         function updateSettingsUI() {
             if (!settings || typeof settings !== 'object') return;
-
             setValue('threshold', settings.primary_threshold_db);
             setValue('duck-amount', settings.duck_amount_db);
             setValue('attack', settings.attack_time_ms);
@@ -1337,7 +1312,6 @@
             setValue('limiter-threshold', settings.limiter_threshold_db);
             setValue('enable-compressor', settings.enable_compressor);
             setValue('comp-ratio', settings.compressor_ratio);
-
             // Sync stored gains for mute/solo logic
             storedGains.primary = typeof settings.primary_gain_db === 'number' ? settings.primary_gain_db : 0;
             storedGains.secondary = typeof settings.secondary_gain_db === 'number' ? settings.secondary_gain_db : 0;
@@ -1345,18 +1319,15 @@
         
         function updateMetricsUI() {
             if (!metrics || typeof metrics !== 'object') return;
-
             const primaryLevel   = typeof metrics.primary_level_db === 'number'   ? metrics.primary_level_db   : -100;
             const primaryPeak    = typeof metrics.primary_peak_db === 'number'    ? metrics.primary_peak_db    : primaryLevel;
             const secondaryLevel = typeof metrics.secondary_level_db === 'number' ? metrics.secondary_level_db : -100;
             const secondaryPeak  = typeof metrics.secondary_peak_db === 'number'  ? metrics.secondary_peak_db  : secondaryLevel;
             const outputLevel    = typeof metrics.output_level_db === 'number'    ? metrics.output_level_db    : -100;
             const outputPeak     = typeof metrics.output_peak_db === 'number'     ? metrics.output_peak_db     : outputLevel;
-
             updateVUMeter('primary', primaryLevel, primaryPeak);
             updateVUMeter('secondary', secondaryLevel, secondaryPeak);
             updateVUMeter('output', outputLevel, outputPeak, metrics.clipping);
-
             const duck = typeof metrics.duck_amount === 'number' ? metrics.duck_amount : 1.0;
             const duckPercent = Math.round(duck * 100);
             document.getElementById('duck-percent').innerHTML =
@@ -1364,33 +1335,27 @@
             
             document.getElementById('active-source').textContent =
                 metrics.primary_active ? 'Primary' : 'Secondary';
-
             if (metrics.clipping) {
                 document.getElementById('output-db').style.color = '#ef4444';
             } else {
                 document.getElementById('output-db').style.color = '';
             }
-
             updateVisualizers(outputLevel);
         }
         
         function updateStatusUI() {
             if (!status || typeof status !== 'object') return;
-
             const samplerate = (typeof status.samplerate === 'number') ? status.samplerate : 0;
             const cpuUsage   = (typeof status.cpu_usage === 'number') ? status.cpu_usage : 0;
             const uptimeSec  = (typeof status.uptime_seconds === 'number') ? status.uptime_seconds : 0;
             const latencyMs  = (typeof status.latency_ms === 'number') ? status.latency_ms : 0;
-
             document.getElementById('connection-status').innerHTML =
                 `<span>${samplerate} Hz</span>`;
             document.getElementById('cpu-badge').innerHTML =
                 `<span>CPU: ${cpuUsage.toFixed(1)}%</span>`;
-
             document.getElementById('uptime').textContent = formatUptime(uptimeSec);
             document.getElementById('latency').innerHTML =
                 `${latencyMs.toFixed(1)}<span class="stat-unit">ms</span>`;
-
             updatePerformanceChart(cpuUsage);
         }
         
@@ -1399,12 +1364,9 @@
             const peakElement = document.getElementById(`${channel}-peak`);
             const dbText      = document.getElementById(`${channel}-db`);
             const ledElement  = document.getElementById(`${channel}-led`);
-
             if (!fillElement || !peakElement || !dbText) return;
-
             if (typeof level !== 'number') level = -100;
             if (typeof peak !== 'number')  peak  = level;
-
             const now = performance.now() / 1000.0;
             const state = peakHold[channel];
             if (state) {
@@ -1419,27 +1381,21 @@
                 }
                 peak = state.value;
             }
-
             const clampDb = (v) => Math.max(MIN_DB, Math.min(MAX_DB, v));
             level = clampDb(level);
             peak  = clampDb(peak);
-
             let fillPercent = ((level - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
             fillPercent = Math.max(0, Math.min(100, fillPercent));
-
             let peakPercent = ((peak - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
             peakPercent = Math.max(0, Math.min(100, peakPercent));
-
             requestAnimationFrame(() => {
                 fillElement.style.width = fillPercent + '%';
                 peakElement.style.right = (100 - peakPercent) + '%';
-
                 if (level <= MIN_DB + 1) {
                     dbText.textContent = '-∞ dB';
                 } else {
                     dbText.textContent = level.toFixed(1) + ' dB';
                 }
-
                 if (ledElement) {
                     if (isClipping || peak >= -1) {
                         ledElement.classList.add('clipping');
@@ -1464,13 +1420,10 @@
             
             performanceChart.update('none');
         }
-
         function updateVisualizers(outputLevelDb) {
             if (!oscilloscopeChart || !spectrumChart) return;
-
             const nowLabel = '';
             const clamped = Math.max(-60, Math.min(0, outputLevelDb || -60));
-
             oscilloscopeData.labels.push(nowLabel);
             oscilloscopeData.datasets[0].data.push(clamped);
             if (oscilloscopeData.labels.length > 120) {
@@ -1478,7 +1431,6 @@
                 oscilloscopeData.datasets[0].data.shift();
             }
             oscilloscopeChart.update('none');
-
             const norm = (clamped + 60) / 60 * 100;
             const base = Math.max(0, Math.min(100, norm));
             const factors = [0.7, 1.0, 0.6, 0.8, 0.9, 0.5, 0.4, 0.3];
@@ -1519,21 +1471,18 @@
                 console.error('Failed to load settings:', error);
             }
         }
-
         async function fetchMetricsAndStatus() {
             try {
                 const [metricsRes, statusRes] = await Promise.all([
                     fetch('/api/metrics'),
                     fetch('/api/status')
                 ]);
-
                 if (metricsRes.ok) {
                     metrics = await metricsRes.json();
                     if (metrics && Object.keys(metrics).length > 0) {
                         updateMetricsUI();
                     }
                 }
-
                 if (statusRes.ok) {
                     status = await statusRes.json();
                     updateStatusUI();
@@ -1632,14 +1581,11 @@
                 showNotification('Error loading logs', 'error');
             }
         }
-
         async function autoconnectAudio() {
             showNotification('Running auto-connect...', 'info');
-
             try {
                 const response = await fetch('/api/autoconnect', { method: 'POST' });
                 const data = await response.json();
-
                 if (response.ok && data.status === 'ok') {
                     showNotification('Audio connections applied', 'success');
                 } else {
@@ -1650,7 +1596,30 @@
                 showNotification('Error running auto-connect', 'error');
             }
         }
-
+        
+        async function updateCarPi() {
+            if (!confirm('Pull latest code from Git and reinstall CarPi?')) return;
+            showNotification('Updating from GitHub…', 'info');
+            try {
+                const response = await fetch('/api/update', {
+                    method: 'POST',
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.status === 'ok') {
+                    showNotification('Update complete. Service may restart.', 'success');
+                    // Optional: refresh after a short delay
+                    setTimeout(() => window.location.reload(), 3000);
+                } else {
+                    const msg = data && data.output ? data.output : (data.error || 'Unknown error');
+                    console.error('Update error:', msg);
+                    showNotification('Update failed: ' + msg, 'error');
+                }
+            } catch (err) {
+                console.error('Update request failed:', err);
+                showNotification('Error contacting update API', 'error');
+            }
+        }
+        
         // Mute / Solo logic (uses gain sliders + saveSettings)
         function toggleMute(channel) {
             const gainId = channel === 'primary' ? 'primary-gain' : 'secondary-gain';
@@ -1658,7 +1627,6 @@
             const slider = document.getElementById(gainId);
             const btn    = document.getElementById(btnId);
             if (!slider || !btn) return;
-
             const isMuted = muteState[channel];
             if (!isMuted) {
                 storedGains[channel] = parseFloat(slider.value);
@@ -1672,31 +1640,25 @@
                 muteState[channel] = false;
                 btn.classList.remove('active');
             }
-
             saveSettings();
         }
-
         function toggleSolo(channel) {
             const primarySlider = document.getElementById('primary-gain');
             const secondarySlider = document.getElementById('secondary-gain');
             const primarySoloBtn = document.getElementById('primary-solo-btn');
             const secondarySoloBtn = document.getElementById('secondary-solo-btn');
             if (!primarySlider || !secondarySlider) return;
-
             if (channel === 'primary') {
                 const currentlySolo = soloState.primary;
                 soloState.primary = !currentlySolo;
                 soloState.secondary = false;
-
                 if (soloState.primary) {
                     storedGains.primary = parseFloat(primarySlider.value);
                     storedGains.secondary = parseFloat(secondarySlider.value);
-
                     primarySlider.value = storedGains.primary;
                     secondarySlider.value = -60;
                     primarySlider.dispatchEvent(new Event('input'));
                     secondarySlider.dispatchEvent(new Event('input'));
-
                     primarySoloBtn.classList.add('active');
                     secondarySoloBtn.classList.remove('active');
                 } else {
@@ -1704,23 +1666,19 @@
                     secondarySlider.value = storedGains.secondary;
                     primarySlider.dispatchEvent(new Event('input'));
                     secondarySlider.dispatchEvent(new Event('input'));
-
                     primarySoloBtn.classList.remove('active');
                 }
             } else {
                 const currentlySolo = soloState.secondary;
                 soloState.secondary = !currentlySolo;
                 soloState.primary = false;
-
                 if (soloState.secondary) {
                     storedGains.primary = parseFloat(primarySlider.value);
                     storedGains.secondary = parseFloat(secondarySlider.value);
-
                     secondarySlider.value = storedGains.secondary;
                     primarySlider.value = -60;
                     primarySlider.dispatchEvent(new Event('input'));
                     secondarySlider.dispatchEvent(new Event('input'));
-
                     secondarySoloBtn.classList.add('active');
                     primarySoloBtn.classList.remove('active');
                 } else {
@@ -1728,11 +1686,9 @@
                     secondarySlider.value = storedGains.secondary;
                     primarySlider.dispatchEvent(new Event('input'));
                     secondarySlider.dispatchEvent(new Event('input'));
-
                     secondarySoloBtn.classList.remove('active');
                 }
             }
-
             saveSettings();
         }
         
@@ -1746,13 +1702,11 @@
             }
             updateThemeToggleLabel();
         }
-
         function toggleTheme() {
             const isNeon = document.body.classList.toggle('theme-neon');
             localStorage.setItem('audioDuckerTheme', isNeon ? 'neon' : 'default');
             updateThemeToggleLabel();
         }
-
         function updateThemeToggleLabel() {
             const label = document.getElementById('theme-toggle-label');
             if (!label) return;
