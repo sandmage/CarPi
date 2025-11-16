@@ -123,7 +123,7 @@ class AudioDucker:
     def __init__(self):
         # Only attach to an already-running JACK server (PipeWire-JACK or jackd)
         # If there is no JACK, this raises JackOpenError and main() exits cleanly.
-        self.client = jack.Client("AudioDucker")
+        self.client = jack.Client("AudioDucker", no_start_server=True)
 
         # Audio ports
         self.primary_in = self.client.inports.register("primary_in_L")
