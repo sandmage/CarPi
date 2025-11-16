@@ -643,13 +643,17 @@ def api_update():
 # Main entrypoint
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# Main entrypoint
+# -----------------------------------------------------------------------------
+
 def main():
     global ducker
     print("Starting Audio Ducking System...")
     print(f"{APP_NAME} v{APP_VERSION} ({BUILD_INFO})")
 
-    # Go back to the simpler behavior that was working:
-    # if JACK can't be opened, it will raise and systemd will restart
+    # If JACK / PipeWire-JACK is not available, this will raise and the process
+    # will exit. systemd will log the error.
     ducker = AudioDucker()
     ducker.start()
 
@@ -665,26 +669,13 @@ def main():
     print("Access from other devices at http://<raspberry-pi-ip>:5000\n")
 
     try:
-        socketio.run(app, host="0.0.0.0", port=5000, debug=False, use_reloader=False)
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-    finally:
-        ducker.stop()
-     
-
-    # One immediate autoconnect attempt on startup
-    try:
-        result = run_autoconnect()
-        if result.get("failed"):
-            print("Initial autoconnect errors:", result["failed"])
-    except Exception as e:
-        print("Initial autoconnect exception:", e)
-
-    print("\nStarting web interface on http://0.0.0.0:5000")
-    print("Access from other devices at http://<raspberry-pi-ip>:5000\n")
-
-    try:
-        socketio.run(app, host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+        socketio.run(
+            app,
+            host="0.0.0.0",
+            port=5000,
+            debug=False,
+            use_reloader=False,
+        )
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
