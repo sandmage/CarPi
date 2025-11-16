@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+#
+# carpi - helper CLI for the CarPi Audio Ducker
+
+set -euo pipefail
+
+SERVICE_NAME="audio-ducker"
+APP_DIR="$HOME/audio-ducker"
+LOG_FILE="$APP_DIR/audio-ducker.log"
+DEFAULT_PORT="5000"
+
+usage() {
+    cat <<EOF
+CarPi CLI
+
+Usage:
+  carpi status           Show systemd user service status
+  carpi restart          Restart the audio-ducker service
+  carpi stop             Stop the service
+  carpi start            Start the service
+  carpi logs [N]         Tail last N log lines (default 100)
+  carpi metrics          Show JSON from /api/metrics
+  carpi status-json      Show JSON from /api/status
+  carpi settings         Show JSON from /api/settings
+  carpi health           Run health check script (if installed)
+  carpi open-ui          Print URL for web UI
+  carpi version          Show app version info from /api/version
+
+EOF
+}
+
+# Discover UI host (very simple)
+ui_host() {
+    # Prefer the Pi's hostname
+    local host
+    host=$(hostname -I 2>/dev/null | awk '{print $1}')
+    if [[ -z "${host:-}" ]]; then
+        host="localhost"
+    fi
+    echo "http://$host:${CARPI_PORT:-$DEFAULT_PORT}"
+}
+
+cmd="${1:-}"
+
+case "$cmd" in
+    status)
+        systemctl --user status "$SERVICE_NAME"
+        ;;
+    restart)
+        systemctl --user restart "$SERVICE_NAME"
+        systemctl --user status "$SERVICE_NAME" --no-pager --lines=5
+        ;;
+    stop)
+        systemctl --user stop "$SERVICE_NAME"
+        ;;
+    start)
+        systemctl --user start "$SERVICE_NAME"
+        systemctl --user status "$SERVICE_NAME" --no-pager --lines=5
+        ;;
+    logs)
+        lines="${2:-100}"
+        tail -n "$lines" "$LOG_FILE"
+        ;;
+    metrics)
+        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/metrics" | jq .
+        ;;
+    status-json)
+        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/status" | jq .
+        ;;
+    settings)
+        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/settings" | jq .
+        ;;
+    health)
+        if [[ -x "$HOME/health_check.sh" ]]; then
+            "$HOME/health_check.sh"
+        elif [[ -x "$APP_DIR/health_check.sh" ]]; then
+            "$APP_DIR/health_check.sh"
+        else
+            echo "health_check.sh not found. Expected at ~/health_check.sh or $APP_DIR/health_check.sh" >&2
+            exit 1
+        fi
+        ;;
+    open-ui)
+        url="$(ui_host)"
+        echo "Open this in your browser:"
+        echo "  $url"
+        ;;
+    version)
+        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/version" | jq .
+        ;;
+    ""|-h|--help|help)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage
+        exit 1
+        ;;
+esac

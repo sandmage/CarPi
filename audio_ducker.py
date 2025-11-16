@@ -22,6 +22,10 @@ from jack import JackOpenError
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 
+APP_NAME = "CarPi Audio Ducker"
+APP_VERSION = "0.9.0"
+BUILD_INFO = "local-build"
+
 # -----------------------------------------------------------------------------
 # Flask / Socket.IO setup
 # -----------------------------------------------------------------------------
@@ -577,6 +581,7 @@ def api_autoconnect():
 def main():
     global ducker
     print("Starting Audio Ducking System...")
+    print(f"{APP_NAME} v{APP_VERSION} ({BUILD_INFO})")
 
     try:
         ducker = AudioDucker()
