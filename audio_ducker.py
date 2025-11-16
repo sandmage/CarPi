@@ -123,7 +123,7 @@ class AudioDucker:
     def __init__(self):
         # Only attach to an already-running JACK server (PipeWire-JACK or jackd)
         # If there is no JACK, this raises JackOpenError and main() exits cleanly.
-        self.client = jack.Client("AudioDucker", no_start_server=True)
+        self.client = jack.Client("AudioDucker")
 
         # Audio ports
         self.primary_in = self.client.inports.register("primary_in_L")
@@ -642,21 +642,35 @@ def api_update():
 # -----------------------------------------------------------------------------
 # Main entrypoint
 # -----------------------------------------------------------------------------
+
 def main():
     global ducker
     print("Starting Audio Ducking System...")
     print(f"{APP_NAME} v{APP_VERSION} ({BUILD_INFO})")
 
-    try:
-        ducker = AudioDucker()
-    except JackOpenError as e:
-        print("Failed to initialize JACK client:")
-        print("  ", e)
-        print("Is a JACK or PipeWire-JACK server running?")
-        # Exit cleanly (status 0) so systemd doesn't hammer restart loops.
-        return
-
+    # Go back to the simpler behavior that was working:
+    # if JACK can't be opened, it will raise and systemd will restart
+    ducker = AudioDucker()
     ducker.start()
+
+    # One immediate autoconnect attempt on startup
+    try:
+        result = run_autoconnect()
+        if result.get("failed"):
+            print("Initial autoconnect errors:", result["failed"])
+    except Exception as e:
+        print("Initial autoconnect exception:", e)
+
+    print("\nStarting web interface on http://0.0.0.0:5000")
+    print("Access from other devices at http://<raspberry-pi-ip>:5000\n")
+
+    try:
+        socketio.run(app, host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    finally:
+        ducker.stop()
+     
 
     # One immediate autoconnect attempt on startup
     try:
