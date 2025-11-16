@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Ducking System - Professional Control</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --darker: #111827;
+            --light: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Neon theme overrides */
+        body.theme-neon {
+            background: radial-gradient(circle at top left, #0f172a 0%, #020617 40%, #000000 100%);
+        }
+        body.theme-neon .card {
+            background: radial-gradient(circle at top left, rgba(99,102,241,0.15), rgba(15,23,42,0.9));
+            border-color: rgba(129,140,248,0.4);
+            box-shadow: 0 0 30px rgba(56,189,248,0.3);
+        }
+        body.theme-neon .vu-track {
+            background: linear-gradient(90deg,
+                rgba(15,23,42,0.9) 0%,
+                rgba(15,23,42,0.6) 100%);
+        }
+        body.theme-neon .vu-fill {
+            background: linear-gradient(90deg,
+                #22c55e 0%,
+                #a855f7 50%,
+                #f97316 75%,
+                #ef4444 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .badge.active {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: var(--success);
+            color: var(--success);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100 { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+
+        .theme-toggle-btn {
+            padding: 0.4rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148,163,184,0.6);
+            background: rgba(15,23,42,0.8);
+            color: #e5e7eb;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .theme-toggle-btn span {
+            font-size: 1rem;
+        }
+        .theme-toggle-btn:hover {
+            border-color: #a855f7;
+            box-shadow: 0 0 15px rgba(168,85,247,0.5);
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .grid-full {
+            grid-column: 1 / -1;
+        }
+        
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            gap: 0.75rem;
+        }
+        
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .card-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* VU Meters */
+        .vu-meter {
+            margin-bottom: 2rem;
+        }
+        
+        .vu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            gap: 0.75rem;
+        }
+        
+        .vu-label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .vu-led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1px solid rgba(248,250,252,0.7);
+            background: rgba(15,23,42,0.9);
+            box-shadow: 0 0 0 transparent;
+        }
+        .vu-led.clipping {
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(248,113,113,0.9);
+        }
+        
+        .vu-value {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            padding: 0.25rem 0.75rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .vu-track {
+            height: 50px;
+            background: linear-gradient(90deg, 
+                rgba(0, 0, 0, 0.4) 0%, 
+                rgba(0, 0, 0, 0.3) 100%);
+            border-radius: 25px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .vu-fill {
+            height: 100%;
+            background: linear-gradient(90deg, 
+                var(--success) 0%, 
+                var(--warning) 70%, 
+                var(--danger) 90%);
+            border-radius: 25px;
+            transition: width 0.06s linear;
+            position: relative;
+            transform-origin: left center;
+        }
+        
+        .vu-peak {
+            position: absolute;
+            top: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--white);
+            opacity: 0.9;
+        }
+        
+        .vu-scale {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            opacity: 0.6;
+        }
+        
+        /* Controls */
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .control-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        .control-help {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            margin-top: 0.25rem;
+        }
+        
+        /* Slider */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .slider {
+            flex: 1;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+            position: relative;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+            transition: all 0.2s;
+        }
+        
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            background: var(--primary-dark);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+        
+        .slider-value {
+            min-width: 70px;
+            text-align: center;
+            font-weight: 600;
+            font-family: 'Monaco', monospace;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+        
+        /* Select */
+        .select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--white);
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .select.small {
+            width: auto;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+        }
+        
+        .select:hover {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        
+        .select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .toggle {
+            position: relative;
+            width: 60px;
+            height: 32px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            transition: 0.4s;
+            border-radius: 34px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 4px;
+            bottom: 3px;
+            background: var(--white);
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(28px);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn-block {
+            width: 100%;
+        }
+
+        .btn-chip {
+            padding: 0.4rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
+
+        .btn-chip.active {
+            background: rgba(34,197,94,0.2);
+            border-color: #22c55e;
+            color: #bbf7d0;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--white);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .tab:hover {
+            opacity: 0.8;
+        }
+        
+        .tab.active {
+            opacity: 1;
+        }
+        
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Charts */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 1rem;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .chart-box-label {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .stat-unit {
+            font-size: 0.9rem;
+            opacity: 0.6;
+            margin-left: 0.25rem;
+        }
+
+        .channel-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .channel-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .channel-row-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            opacity: 0.85;
+        }
+
+        .channel-row-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+            
+            .tabs {
+                overflow-x: auto;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Tooltips */
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
+        
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            background: var(--darker);
+            color: var(--white);
+            border-radius: 8px;
+            white-space: nowrap;
+            font-size: 0.875rem;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">🎵</div>
+                <h1>Audio Ducking System</h1>
+            </div>
+            <div class="header-right">
+                <div class="status-badges">
+                    <div class="badge active" id="system-status">
+                        <span class="status-dot"></span>
+                        <span>System Active</span>
+                    </div>
+                    <div class="badge" id="connection-status">
+                        <span>48000 Hz</span>
+                    </div>
+                    <div class="badge" id="cpu-badge">
+                        <span>CPU: 0%</span>
+                    </div>
+                </div>
+                <button class="theme-toggle-btn" id="theme-toggle">
+                    <span>🌈</span>
+                    <span id="theme-toggle-label">Neon off</span>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value" id="uptime">0:00:00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Latency</div>
+                <div class="stat-value" id="latency">0<span class="stat-unit">ms</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Duck Amount</div>
+                <div class="stat-value" id="duck-percent">100<span class="stat-unit">%</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Active Source</div>
+                <div class="stat-value" id="active-source" style="font-size: 1rem;">None</div>
+            </div>
+        </div>
+        
+        <!-- Main Grid -->
+        <div class="grid">
+            <!-- VU Meters -->
+            <div class="card grid-full fade-in">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <div class="card-icon">📊</div>
+                        Live Audio Levels
+                    </h2>
+                </div>
+                
+                <div class="vu-meter">
+                    <div class="vu-header">
+                        <span class="vu-label">
+                            <span class="vu-led" id="primary-led"></span>
+                            Primary (CarPlay)
+                        </span>
+                        <span class="vu-value" id="primary-db">-∞ dB</span>
+                    </div>
+                    <div class="vu-track">
+                        <div class="vu-fill" id="primary-fill" style="width: 0%"></div>
+                        <div class="vu-peak" id="primary-peak" style="right: 100%"></div>
+                    </div>
+                    <div class="vu-scale">
+                        <span>-60</span>
+                        <span>-40</span>
+                        <span>-20</span>
+                        <span>-10</span>
+                        <span>0 dB</span>
+                    </div>
+                </div>
+                
+                <div class="vu-meter">
+                    <div class="vu-header">
+                        <span class="vu-label">
+                            <span class="vu-led" id="secondary-led"></span>
+                            Secondary (Line In)
+                        </span>
+                        <span class="vu-value" id="secondary-db">-∞ dB</span>
+                    </div>
+                    <div class="vu-track">
+                        <div class="vu-fill" id="secondary-fill" style="width: 0%"></div>
+                        <div class="vu-peak" id="secondary-peak" style="right: 100%"></div>
+                    </div>
+                    <div class="vu-scale">
+                        <span>-60</span>
+                        <span>-40</span>
+                        <span>-20</span>
+                        <span>-10</span>
+                        <span>0 dB</span>
+                    </div>
+                </div>
+                
+                <div class="vu-meter">
+                    <div class="vu-header">
+                        <span class="vu-label">
+                            <span class="vu-led" id="output-led"></span>
+                            Master Output
+                        </span>
+                        <span class="vu-value" id="output-db">-∞ dB</span>
+                    </div>
+                    <div class="vu-track">
+                        <div class="vu-fill" id="output-fill" style="width: 0%"></div>
+                        <div class="vu-peak" id="output-peak" style="right: 100%"></div>
+                    </div>
+                    <div class="vu-scale">
+                        <span>-60</span>
+                        <span>-40</span>
+                        <span>-20</span>
+                        <span>-10</span>
+                        <span>0 dB</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Panel -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <div class="card-icon">⚙️</div>
+                        Ducking Settings
+                    </h2>
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab active" data-tab="basic">Basic</button>
+                    <button class="tab" data-tab="advanced">Advanced</button>
+                    <button class="tab" data-tab="processing">Processing</button>
+                </div>
+                
+                <!-- Basic Tab -->
+                <div class="tab-content active" id="basic-tab">
+                    <div class="control-group">
+                        <label class="control-label">Primary Threshold</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="threshold" 
+                                   min="-60" max="-10" step="1" value="-40">
+                            <span class="slider-value" id="threshold-value">-40 dB</span>
+                        </div>
+                        <p class="control-help">Audio level that triggers ducking</p>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Duck Amount</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="duck-amount" 
+                                   min="-60" max="0" step="1" value="-20">
+                            <span class="slider-value" id="duck-amount-value">-20 dB</span>
+                        </div>
+                        <p class="control-help">How much to reduce secondary audio</p>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Attack Time</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="attack" 
+                                   min="10" max="500" step="10" value="50">
+                            <span class="slider-value" id="attack-value">50 ms</span>
+                        </div>
+                        <p class="control-help">How quickly ducking engages</p>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Release Time</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="release" 
+                                   min="100" max="2000" step="50" value="500">
+                            <span class="slider-value" id="release-value">500 ms</span>
+                        </div>
+                        <p class="control-help">How quickly audio returns to normal</p>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Ducking Mode</label>
+                        <select class="select" id="ducking-mode">
+                            <option value="standard">Standard</option>
+                            <option value="sidechain">Sidechain</option>
+                            <option value="priority">Priority</option>
+                            <option value="smart">Smart (Adaptive)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Advanced Tab -->
+                <div class="tab-content" id="advanced-tab">
+                    <div class="control-group">
+                        <label class="control-label">Primary Gain</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="primary-gain" 
+                                   min="-20" max="20" step="1" value="0">
+                            <span class="slider-value" id="primary-gain-value">0 dB</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Secondary Gain</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="secondary-gain" 
+                                   min="-20" max="20" step="1" value="0">
+                            <span class="slider-value" id="secondary-gain-value">0 dB</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Output Gain</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="output-gain" 
+                                   min="-20" max="20" step="1" value="0">
+                            <span class="slider-value" id="output-gain-value">0 dB</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Hold Time</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="hold" 
+                                   min="0" max="500" step="10" value="100">
+                            <span class="slider-value" id="hold-value">100 ms</span>
+                        </div>
+                        <p class="control-help">Delay before release phase</p>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label">Channel Controls</label>
+                        <div class="channel-controls">
+                            <div class="channel-row">
+                                <span class="channel-row-label">Primary (CarPlay)</span>
+                                <div class="channel-row-buttons">
+                                    <button class="btn btn-secondary btn-chip" id="primary-mute-btn" onclick="toggleMute('primary')">
+                                        🔇 Mute
+                                    </button>
+                                    <button class="btn btn-secondary btn-chip" id="primary-solo-btn" onclick="toggleSolo('primary')">
+                                        🎚 Solo
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="channel-row">
+                                <span class="channel-row-label">Secondary (Line In)</span>
+                                <div class="channel-row-buttons">
+                                    <button class="btn btn-secondary btn-chip" id="secondary-mute-btn" onclick="toggleMute('secondary')">
+                                        🔇 Mute
+                                    </button>
+                                    <button class="btn btn-secondary btn-chip" id="secondary-solo-btn" onclick="toggleSolo('secondary')">
+                                        🎚 Solo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="control-help">
+                            Mute/Solo adjust the gain sliders under the hood and save settings automatically.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Processing Tab -->
+                <div class="tab-content" id="processing-tab">
+                    <div class="control-group">
+                        <div class="toggle-container">
+                            <label class="toggle">
+                                <input type="checkbox" id="enable-limiter" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span>Enable Limiter</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Limiter Threshold</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="limiter-threshold" 
+                                   min="-10" max="0" step="0.1" value="-1">
+                            <span class="slider-value" id="limiter-threshold-value">-1.0 dB</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="toggle-container">
+                            <label class="toggle">
+                                <input type="checkbox" id="enable-compressor">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span>Enable Compressor</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label class="control-label">Compression Ratio</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="comp-ratio" 
+                                   min="1" max="20" step="0.5" value="4">
+                            <span class="slider-value" id="comp-ratio-value">4:1</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-block" onclick="saveSettings()">
+                    💾 Save Settings
+                </button>
+            </div>
+            
+            <!-- System Monitor + Visualizers -->
+            <div class="card fade-in">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <div class="card-icon">📈</div>
+                        System Monitor
+                    </h2>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+
+                <div class="chart-row">
+                    <div>
+                        <div class="chart-box-label">Oscilloscope (Output Level History)</div>
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="oscilloscopeChart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="chart-box-label">Spectrum Style Bars (Level-driven)</div>
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="spectrumChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group" style="margin-top: 2rem;">
+                    <button class="btn btn-secondary" onclick="restartSystem()">
+                        🔄 Restart Audio System
+                    </button>
+                    <button class="btn btn-secondary" onclick="viewLogs()">
+                        📋 View Logs
+                    </button>
+                    <button class="btn btn-secondary" onclick="autoconnectAudio()">
+                        🔌 Reconnect Audio
+                    </button>
+                    <button class="btn btn-danger" onclick="resetSettings()">
+                        ⚠️ Reset to Defaults
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        console.log('Audio Ducker UI script loaded');
+
+        // WebSocket connection
+        const socket = io({
+            transports: ['websocket'],
+            upgrade: false,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000
+        });
+        
+        // State
+        let settings = {};
+        let metrics = {};
+        let status = {};
+        let performanceChart = null;
+        let oscilloscopeChart = null;
+        let spectrumChart = null;
+
+        let performanceData = {
+            labels: [],
+            datasets: [{
+                label: 'CPU Usage',
+                data: [],
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                tension: 0.4
+            }]
+        };
+
+        let oscilloscopeData = {
+            labels: [],
+            datasets: [{
+                label: 'Output Level (dB)',
+                data: [],
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34,197,94,0.08)',
+                tension: 0.25
+            }]
+        };
+
+        let spectrumData = {
+            labels: ['Sub', 'Bass', 'Low Mid', 'Mid', 'High Mid', 'Presence', 'Brilliance', 'Air'],
+            datasets: [{
+                label: 'Level',
+                data: [0,0,0,0,0,0,0,0],
+                backgroundColor: [
+                    '#22c55e','#22c55e','#84cc16','#eab308',
+                    '#f97316','#fb923c','#f97373','#ef4444'
+                ]
+            }]
+        };
+
+        // Peak-hold state
+        const peakHold = {
+            primary: { value: -100, lastUpdate: 0 },
+            secondary: { value: -100, lastUpdate: 0 },
+            output: { value: -100, lastUpdate: 0 }
+        };
+        const PEAK_HOLD_DECAY_DB_PER_SEC = 8; // dB per second decay
+        const MIN_DB = -90;
+        const MAX_DB = 0;
+        
+        // Mute / Solo state
+        let muteState = {
+            primary: false,
+            secondary: false
+        };
+        let soloState = {
+            primary: false,
+            secondary: false
+        };
+        let storedGains = {
+            primary: 0,
+            secondary: 0
+        };
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeTabs();
+            initializeSliders();
+            initializeCharts();
+            initTheme();
+            loadSettings();
+
+            // Poll metrics & status as a fallback in case WebSocket updates are flaky
+            setInterval(fetchMetricsAndStatus, 250); // 4 times per second is plenty
+
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', toggleTheme);
+            }
+        });
+        
+        // Tab System
+        function initializeTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(`${tabName}-tab`).classList.add('active');
+                });
+            });
+        }
+        
+        // Slider Controls
+        function initializeSliders() {
+            const sliders = [
+                { id: 'threshold', suffix: ' dB' },
+                { id: 'duck-amount', suffix: ' dB' },
+                { id: 'attack', suffix: ' ms' },
+                { id: 'release', suffix: ' ms' },
+                { id: 'hold', suffix: ' ms' },
+                { id: 'primary-gain', suffix: ' dB' },
+                { id: 'secondary-gain', suffix: ' dB' },
+                { id: 'output-gain', suffix: ' dB' },
+                { id: 'limiter-threshold', suffix: ' dB', precision: 1 },
+                { id: 'comp-ratio', suffix: ':1', precision: 1 }
+            ];
+            
+            sliders.forEach(config => {
+                const slider = document.getElementById(config.id);
+                const display = document.getElementById(`${config.id}-value`);
+                
+                if (slider && display) {
+                    const updateDisplay = (val) => {
+                        const value = config.precision ? 
+                            parseFloat(val).toFixed(config.precision) : 
+                            val;
+                        display.textContent = value + config.suffix;
+                    };
+
+                    updateDisplay(slider.value);
+
+                    slider.addEventListener('input', (e) => {
+                        updateDisplay(e.target.value);
+                    });
+                }
+            });
+        }
+        
+        // Charts
+        function initializeCharts() {
+            const perfCtx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(perfCtx, {
+                type: 'line',
+                data: performanceData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                callback: (value) => value + '%'
+                            }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                        }
+                    }
+                }
+            });
+
+            const oscCtx = document.getElementById('oscilloscopeChart').getContext('2d');
+            oscilloscopeChart = new Chart(oscCtx, {
+                type: 'line',
+                data: oscilloscopeData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            min: -60,
+                            max: 0,
+                            grid: { color: 'rgba(148,163,184,0.25)' },
+                            ticks: {
+                                color: 'rgba(209,213,219,0.8)',
+                                callback: v => v + ' dB'
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            });
+
+            const specCtx = document.getElementById('spectrumChart').getContext('2d');
+            spectrumChart = new Chart(specCtx, {
+                type: 'bar',
+                data: spectrumData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(148,163,184,0.25)' },
+                            ticks: {
+                                color: 'rgba(209,213,219,0.8)',
+                                callback: v => v + '%'
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: 'rgba(209,213,219,0.8)' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // WebSocket Events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            document.getElementById('system-status').classList.add('active');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            document.getElementById('system-status').classList.remove('active');
+        });
+        
+        socket.on('settings', (data) => {
+            settings = data;
+            updateSettingsUI();
+        });
+        
+        socket.on('metrics', (data) => {
+            metrics = data;
+            updateMetricsUI();
+        });
+        
+        socket.on('status', (data) => {
+            status = data;
+            updateStatusUI();
+        });
+        
+        // Update UI Functions
+        function updateSettingsUI() {
+            if (!settings || typeof settings !== 'object') return;
+
+            setValue('threshold', settings.primary_threshold_db);
+            setValue('duck-amount', settings.duck_amount_db);
+            setValue('attack', settings.attack_time_ms);
+            setValue('release', settings.release_time_ms);
+            setValue('ducking-mode', settings.ducking_mode);
+            
+            setValue('primary-gain', settings.primary_gain_db);
+            setValue('secondary-gain', settings.secondary_gain_db);
+            setValue('output-gain', settings.output_gain_db);
+            setValue('hold', settings.hold_time_ms);
+            
+            setValue('enable-limiter', settings.enable_limiter);
+            setValue('limiter-threshold', settings.limiter_threshold_db);
+            setValue('enable-compressor', settings.enable_compressor);
+            setValue('comp-ratio', settings.compressor_ratio);
+
+            // Sync stored gains for mute/solo logic
+            storedGains.primary = typeof settings.primary_gain_db === 'number' ? settings.primary_gain_db : 0;
+            storedGains.secondary = typeof settings.secondary_gain_db === 'number' ? settings.secondary_gain_db : 0;
+        }
+        
+        function updateMetricsUI() {
+            if (!metrics || typeof metrics !== 'object') return;
+
+            const primaryLevel   = typeof metrics.primary_level_db === 'number'   ? metrics.primary_level_db   : -100;
+            const primaryPeak    = typeof metrics.primary_peak_db === 'number'    ? metrics.primary_peak_db    : primaryLevel;
+            const secondaryLevel = typeof metrics.secondary_level_db === 'number' ? metrics.secondary_level_db : -100;
+            const secondaryPeak  = typeof metrics.secondary_peak_db === 'number'  ? metrics.secondary_peak_db  : secondaryLevel;
+            const outputLevel    = typeof metrics.output_level_db === 'number'    ? metrics.output_level_db    : -100;
+            const outputPeak     = typeof metrics.output_peak_db === 'number'     ? metrics.output_peak_db     : outputLevel;
+
+            updateVUMeter('primary', primaryLevel, primaryPeak);
+            updateVUMeter('secondary', secondaryLevel, secondaryPeak);
+            updateVUMeter('output', outputLevel, outputPeak, metrics.clipping);
+
+            const duck = typeof metrics.duck_amount === 'number' ? metrics.duck_amount : 1.0;
+            const duckPercent = Math.round(duck * 100);
+            document.getElementById('duck-percent').innerHTML =
+                duckPercent + '<span class="stat-unit">%</span>';
+            
+            document.getElementById('active-source').textContent =
+                metrics.primary_active ? 'Primary' : 'Secondary';
+
+            if (metrics.clipping) {
+                document.getElementById('output-db').style.color = '#ef4444';
+            } else {
+                document.getElementById('output-db').style.color = '';
+            }
+
+            updateVisualizers(outputLevel);
+        }
+        
+        function updateStatusUI() {
+            if (!status || typeof status !== 'object') return;
+
+            const samplerate = (typeof status.samplerate === 'number') ? status.samplerate : 0;
+            const cpuUsage   = (typeof status.cpu_usage === 'number') ? status.cpu_usage : 0;
+            const uptimeSec  = (typeof status.uptime_seconds === 'number') ? status.uptime_seconds : 0;
+            const latencyMs  = (typeof status.latency_ms === 'number') ? status.latency_ms : 0;
+
+            document.getElementById('connection-status').innerHTML =
+                `<span>${samplerate} Hz</span>`;
+            document.getElementById('cpu-badge').innerHTML =
+                `<span>CPU: ${cpuUsage.toFixed(1)}%</span>`;
+
+            document.getElementById('uptime').textContent = formatUptime(uptimeSec);
+            document.getElementById('latency').innerHTML =
+                `${latencyMs.toFixed(1)}<span class="stat-unit">ms</span>`;
+
+            updatePerformanceChart(cpuUsage);
+        }
+        
+        function updateVUMeter(channel, level, peak, isClipping = false) {
+            const fillElement = document.getElementById(`${channel}-fill`);
+            const peakElement = document.getElementById(`${channel}-peak`);
+            const dbText      = document.getElementById(`${channel}-db`);
+            const ledElement  = document.getElementById(`${channel}-led`);
+
+            if (!fillElement || !peakElement || !dbText) return;
+
+            if (typeof level !== 'number') level = -100;
+            if (typeof peak !== 'number')  peak  = level;
+
+            const now = performance.now() / 1000.0;
+            const state = peakHold[channel];
+            if (state) {
+                if (peak > state.value) {
+                    state.value = peak;
+                    state.lastUpdate = now;
+                } else {
+                    const dt = now - state.lastUpdate;
+                    const decay = PEAK_HOLD_DECAY_DB_PER_SEC * dt;
+                    state.value = Math.max(level, state.value - decay);
+                    state.lastUpdate = now;
+                }
+                peak = state.value;
+            }
+
+            const clampDb = (v) => Math.max(MIN_DB, Math.min(MAX_DB, v));
+            level = clampDb(level);
+            peak  = clampDb(peak);
+
+            let fillPercent = ((level - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
+            fillPercent = Math.max(0, Math.min(100, fillPercent));
+
+            let peakPercent = ((peak - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
+            peakPercent = Math.max(0, Math.min(100, peakPercent));
+
+            requestAnimationFrame(() => {
+                fillElement.style.width = fillPercent + '%';
+                peakElement.style.right = (100 - peakPercent) + '%';
+
+                if (level <= MIN_DB + 1) {
+                    dbText.textContent = '-∞ dB';
+                } else {
+                    dbText.textContent = level.toFixed(1) + ' dB';
+                }
+
+                if (ledElement) {
+                    if (isClipping || peak >= -1) {
+                        ledElement.classList.add('clipping');
+                    } else {
+                        ledElement.classList.remove('clipping');
+                    }
+                }
+            });
+        }
+        
+        function updatePerformanceChart(cpuUsage) {
+            if (!performanceChart) return;
+            const now = new Date().toLocaleTimeString();
+            
+            performanceData.labels.push(now);
+            performanceData.datasets[0].data.push(cpuUsage);
+            
+            if (performanceData.labels.length > 20) {
+                performanceData.labels.shift();
+                performanceData.datasets[0].data.shift();
+            }
+            
+            performanceChart.update('none');
+        }
+
+        function updateVisualizers(outputLevelDb) {
+            if (!oscilloscopeChart || !spectrumChart) return;
+
+            const nowLabel = '';
+            const clamped = Math.max(-60, Math.min(0, outputLevelDb || -60));
+
+            oscilloscopeData.labels.push(nowLabel);
+            oscilloscopeData.datasets[0].data.push(clamped);
+            if (oscilloscopeData.labels.length > 120) {
+                oscilloscopeData.labels.shift();
+                oscilloscopeData.datasets[0].data.shift();
+            }
+            oscilloscopeChart.update('none');
+
+            const norm = (clamped + 60) / 60 * 100;
+            const base = Math.max(0, Math.min(100, norm));
+            const factors = [0.7, 1.0, 0.6, 0.8, 0.9, 0.5, 0.4, 0.3];
+            spectrumData.datasets[0].data = factors.map(f => Math.max(0, Math.min(100, base * f)));
+            spectrumChart.update('none');
+        }
+        
+        // Utility Functions
+        function setValue(id, value) {
+            const element = document.getElementById(id);
+            if (!element || value === undefined || value === null) return;
+            
+            if (element.type === 'checkbox') {
+                element.checked = !!value;
+            } else if (element.tagName === 'SELECT') {
+                element.value = value;
+            } else {
+                element.value = value;
+                element.dispatchEvent(new Event('input'));
+            }
+        }
+        
+        function formatUptime(seconds) {
+            seconds = Math.max(0, seconds || 0);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // API Functions
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                settings = await response.json();
+                updateSettingsUI();
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        async function fetchMetricsAndStatus() {
+            try {
+                const [metricsRes, statusRes] = await Promise.all([
+                    fetch('/api/metrics'),
+                    fetch('/api/status')
+                ]);
+
+                if (metricsRes.ok) {
+                    metrics = await metricsRes.json();
+                    if (metrics && Object.keys(metrics).length > 0) {
+                        updateMetricsUI();
+                    }
+                }
+
+                if (statusRes.ok) {
+                    status = await statusRes.json();
+                    updateStatusUI();
+                }
+            } catch (err) {
+                // ok to ignore; WebSocket may still be delivering updates
+            }
+        }
+        
+        async function saveSettings() {
+            const newSettings = {
+                primary_threshold_db: parseFloat(document.getElementById('threshold').value),
+                duck_amount_db: parseFloat(document.getElementById('duck-amount').value),
+                attack_time_ms: parseFloat(document.getElementById('attack').value),
+                release_time_ms: parseFloat(document.getElementById('release').value),
+                hold_time_ms: parseFloat(document.getElementById('hold').value),
+                primary_gain_db: parseFloat(document.getElementById('primary-gain').value),
+                secondary_gain_db: parseFloat(document.getElementById('secondary-gain').value),
+                output_gain_db: parseFloat(document.getElementById('output-gain').value),
+                ducking_mode: document.getElementById('ducking-mode').value,
+                enable_limiter: document.getElementById('enable-limiter').checked,
+                limiter_threshold_db: parseFloat(document.getElementById('limiter-threshold').value),
+                enable_compressor: document.getElementById('enable-compressor').checked,
+                compressor_ratio: parseFloat(document.getElementById('comp-ratio').value)
+            };
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newSettings)
+                });
+                
+                if (response.ok) {
+                    settings = newSettings;
+                    storedGains.primary = newSettings.primary_gain_db;
+                    storedGains.secondary = newSettings.secondary_gain_db;
+                    showNotification('Settings saved successfully', 'success');
+                } else {
+                    showNotification('Failed to save settings', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                showNotification('Error saving settings', 'error');
+            }
+        }
+        
+        async function restartSystem() {
+            if (!confirm('Restart the audio system?')) return;
+            
+            try {
+                const response = await fetch('/api/restart', { method: 'POST' });
+                if (response.ok) {
+                    showNotification('System restarting...', 'info');
+                } else {
+                    showNotification('Failed to restart system', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to restart:', error);
+                showNotification('Error restarting system', 'error');
+            }
+        }
+        
+        async function resetSettings() {
+            if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+            
+            const defaults = {
+                primary_threshold_db: -40,
+                duck_amount_db: -20,
+                attack_time_ms: 50,
+                release_time_ms: 500,
+                hold_time_ms: 100,
+                primary_gain_db: 0,
+                secondary_gain_db: 0,
+                output_gain_db: 0,
+                ducking_mode: 'standard',
+                enable_limiter: true,
+                limiter_threshold_db: -1,
+                enable_compressor: false,
+                compressor_ratio: 4
+            };
+            
+            settings = defaults;
+            updateSettingsUI();
+            await saveSettings();
+        }
+        
+        async function viewLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const data = await response.json();
+                const logWindow = window.open('', 'Logs', 'width=800,height=600');
+                logWindow.document.write('<pre>' + data.logs.join('') + '</pre>');
+            } catch (error) {
+                console.error('Failed to fetch logs:', error);
+                showNotification('Error loading logs', 'error');
+            }
+        }
+
+        async function autoconnectAudio() {
+            showNotification('Running auto-connect...', 'info');
+
+            try {
+                const response = await fetch('/api/autoconnect', { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok && data.status === 'ok') {
+                    showNotification('Audio connections applied', 'success');
+                } else {
+                    showNotification('Auto-connect error: ' + (data.error || 'unknown'), 'error');
+                }
+            } catch (error) {
+                console.error('Failed to autoconnect:', error);
+                showNotification('Error running auto-connect', 'error');
+            }
+        }
+
+        // Mute / Solo logic (uses gain sliders + saveSettings)
+        function toggleMute(channel) {
+            const gainId = channel === 'primary' ? 'primary-gain' : 'secondary-gain';
+            const btnId  = channel === 'primary' ? 'primary-mute-btn' : 'secondary-mute-btn';
+            const slider = document.getElementById(gainId);
+            const btn    = document.getElementById(btnId);
+            if (!slider || !btn) return;
+
+            const isMuted = muteState[channel];
+            if (!isMuted) {
+                storedGains[channel] = parseFloat(slider.value);
+                slider.value = -60;
+                slider.dispatchEvent(new Event('input'));
+                muteState[channel] = true;
+                btn.classList.add('active');
+            } else {
+                slider.value = storedGains[channel];
+                slider.dispatchEvent(new Event('input'));
+                muteState[channel] = false;
+                btn.classList.remove('active');
+            }
+
+            saveSettings();
+        }
+
+        function toggleSolo(channel) {
+            const primarySlider = document.getElementById('primary-gain');
+            const secondarySlider = document.getElementById('secondary-gain');
+            const primarySoloBtn = document.getElementById('primary-solo-btn');
+            const secondarySoloBtn = document.getElementById('secondary-solo-btn');
+            if (!primarySlider || !secondarySlider) return;
+
+            if (channel === 'primary') {
+                const currentlySolo = soloState.primary;
+                soloState.primary = !currentlySolo;
+                soloState.secondary = false;
+
+                if (soloState.primary) {
+                    storedGains.primary = parseFloat(primarySlider.value);
+                    storedGains.secondary = parseFloat(secondarySlider.value);
+
+                    primarySlider.value = storedGains.primary;
+                    secondarySlider.value = -60;
+                    primarySlider.dispatchEvent(new Event('input'));
+                    secondarySlider.dispatchEvent(new Event('input'));
+
+                    primarySoloBtn.classList.add('active');
+                    secondarySoloBtn.classList.remove('active');
+                } else {
+                    primarySlider.value = storedGains.primary;
+                    secondarySlider.value = storedGains.secondary;
+                    primarySlider.dispatchEvent(new Event('input'));
+                    secondarySlider.dispatchEvent(new Event('input'));
+
+                    primarySoloBtn.classList.remove('active');
+                }
+            } else {
+                const currentlySolo = soloState.secondary;
+                soloState.secondary = !currentlySolo;
+                soloState.primary = false;
+
+                if (soloState.secondary) {
+                    storedGains.primary = parseFloat(primarySlider.value);
+                    storedGains.secondary = parseFloat(secondarySlider.value);
+
+                    secondarySlider.value = storedGains.secondary;
+                    primarySlider.value = -60;
+                    primarySlider.dispatchEvent(new Event('input'));
+                    secondarySlider.dispatchEvent(new Event('input'));
+
+                    secondarySoloBtn.classList.add('active');
+                    primarySoloBtn.classList.remove('active');
+                } else {
+                    primarySlider.value = storedGains.primary;
+                    secondarySlider.value = storedGains.secondary;
+                    primarySlider.dispatchEvent(new Event('input'));
+                    secondarySlider.dispatchEvent(new Event('input'));
+
+                    secondarySoloBtn.classList.remove('active');
+                }
+            }
+
+            saveSettings();
+        }
+        
+        // Theme
+        function initTheme() {
+            const saved = localStorage.getItem('audioDuckerTheme') || 'default';
+            if (saved === 'neon') {
+                document.body.classList.add('theme-neon');
+            } else {
+                document.body.classList.remove('theme-neon');
+            }
+            updateThemeToggleLabel();
+        }
+
+        function toggleTheme() {
+            const isNeon = document.body.classList.toggle('theme-neon');
+            localStorage.setItem('audioDuckerTheme', isNeon ? 'neon' : 'default');
+            updateThemeToggleLabel();
+        }
+
+        function updateThemeToggleLabel() {
+            const label = document.getElementById('theme-toggle-label');
+            if (!label) return;
+            if (document.body.classList.contains('theme-neon')) {
+                label.textContent = 'Neon on';
+            } else {
+                label.textContent = 'Neon off';
+            }
+        }
+        
+        // Notifications
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#6366f1'};
+                color: white;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
