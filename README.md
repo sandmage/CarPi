@@ -1,161 +1,185 @@
-# Audio Ducker for Raspberry Pi  
-A real-time dual-source audio ducking engine with a modern Web UI, designed for in-car or home AV installations.  
-Built around **JACK**, **PipeWire**, **Python**, and **Flask + WebSockets**.
+🔥 CarPi – Real-Time Audio Ducker for Raspberry Pi
 
-This system automatically lowers (“ducks”) audio from a secondary source (ex: MS210x video grabber, radio, media player) whenever a primary source (ex: CarPlay, navigation, phone call audio) is detected — just like a professional broadcast mixer.
+A real-time dual-source audio ducking engine with a modern Web UI, designed for in-car audio systems or home AV processing.
+Built around JACK, PipeWire, Python, and Flask + WebSockets.
 
----
+This system automatically lowers (“ducks”) audio from a secondary source (ex: MS210x HDMI-to-USB capture, radio, media player) whenever a primary source (ex: CarPlay, navigation, phone call audio) becomes active — similar to a professional broadcast mixer.
 
-## ✨ Features
+⸻
 
-### 🔊 Audio Processing
-- Real-time ducking with threshold, attack, release, hold, and depth (duck amount)
-- Adjustable gain for primary, secondary, and output paths
-- Optional compressor + limiter
-- Zero-latency direct monitoring
-- Safe shutdown and restart handling
+✨ Features
 
-### 🖥 Web UI Dashboard
-- Live VU meters for primary, secondary, and master output
-- Real-time settings sync via WebSockets
-- Auto-reconnect and fallback HTTP polling
-- Live system status indicators
-- Instant Apply / Save system
-- Autoconnect routing for JACK/ PipeWire
+🔊 Audio Processing
+	•	Real-time ducking with:
+	•	Threshold
+	•	Attack
+	•	Release
+	•	Hold
+	•	Duck depth (amount)
+	•	Independent gain for:
+	•	Primary
+	•	Secondary
+	•	Output path
+	•	Optional Compressor & Limiter
+	•	Fast, stable, low-latency audio pipeline
+	•	Automatic safe recovery after JACK restarts
 
-### 🔧 Auto-Routing & Stability Features
-- Automatic JACK port connection on startup
-- Auto-recovery if JACK restarts
-- Metrics API + WebSocket streaming
-- Clean systemd user service for always-on operation
+🖥 Web UI Dashboard
+	•	Live VU meters (Primary / Secondary / Output)
+	•	Real-time settings sync with WebSockets
+	•	HTTP polling fallback for Safari/iOS
+	•	System status indicators (CPU, Rate, Latency, Uptime)
+	•	Autoconnect routing panel
+	•	Restart system / View logs / Reset defaults
 
----
+🔧 Auto-Routing & System Features
+	•	Auto-connects JACK ports on boot
+	•	Automatic JACK recovery
+	•	Systemd user service for always-running operation
+	•	Logging, metrics API, settings persistence
 
-## 🚀 Installing
+⸻
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/<YOUR_USERNAME>/audio-ducker.git
-cd audio-ducker
-```
+🚀 Installation
 
-### 2. Run the installer  
-```bash
+1. Clone the repository
+
+git clone https://github.com/sandmage/CarPi.git
+
+cd CarPi
+
+2. Run the installer
+
 chmod +x install.sh
+
 ./install.sh
-```
 
-This will:
-- Install required packages  
-- Create a Python venv in `~/audio-ducker/venv`  
-- Install Python dependencies  
-- Install + enable the systemd user service  
-- Start the ducking engine  
-- Launch the web dashboard  
+What the installer does:
+	•	Installs system dependencies
+	•	Creates Python virtualenv
+	•	Installs Python requirements
+	•	Installs + enables the carpi.service systemd user service
+	•	Auto-creates missing config
+	•	Starts the CarPi audio engine
+	•	Enables boot persistence
 
----
+⸻
 
-## 🌐 Accessing the Web Interface
+🌐 Accessing the Web Dashboard
 
-From the Pi:
-```
+On the Pi:
+
 http://localhost:5000
-```
 
-From another device:
-```
+From your phone or another device:
+
 http://<raspberry-pi-ip>:5000
-```
 
----
+(mDNS carpi.local support coming soon)
 
-## 🔊 Connecting Your Audio Sources
+⸻
 
-The system auto-routes for the common case:
+🔊 Audio Routing (Default)
 
-- **Primary input** (CarPlay decoder / phone):  
-  `system:capture_3` → `AudioDucker:primary_in_*`
+The installer autoconnects:
 
-- **Secondary input** (MS210x / video grabber):  
-  `system:capture_1` → `AudioDucker:secondary_in_*`
+Primary source (CarPlay decoder)
 
-- **Output** (Amp, DAC, USB sound card):  
-  `AudioDucker:output_*` → `system:playback_*`
+system:capture_3 → CarPi:primary_in_L
+system:capture_4 → CarPi:primary_in_R
 
-You can also adjust routing in the web UI or run:
+Secondary source (MS210x Line-In / HDMI capture)
 
-```bash
+system:capture_1 → CarPi:secondary_in_L
+system:capture_2 → CarPi:secondary_in_R
+
+Output (Amp / DAC / AUX)
+
+CarPi:output_L → system:playback_1
+CarPi:output_R → system:playback_2
+
 pw-jack qjackctl
-```
 
----
+or the Web UI’s “Reconnect Audio” button.
 
-## 🧪 Verify After Reboot
-Run this to confirm everything came back online correctly:
+⸻
 
-```bash
-./validate_reboot.sh
-```
+🧪 Post-Reboot Validation
 
-(Installer generates this automatically.)
+If you want to confirm everything came up cleanly:
 
----
+./reboot_check.sh
 
-## 📁 Project Structure
+This validates:
+	•	Service running?
+	•	Ports connected?
+	•	Audio flowing?
+	•	Web UI reachable?
 
-```
-audio-ducker/
+⸻
+
+📁 Project Structure
+
+CarPi/
 │
-├── audio_ducker.py           # Main engine
+├── audio_ducker.py           # Main DSP engine
 ├── templates/
-│     └── index.html          # Full Web UI
+│     └── index.html          # Web UI frontend
 ├── install.sh                # Installer
-├── uninstall.sh              # Removes everything
-├── README.md                 # This file
-└── QUICKSTART.md             # Short version
-```
+├── uninstall.sh              # Full removal script
+├── autoconnect.sh            # JACK/PipeWire routing
+├── reboot_check.sh           # Reboot validator
+├── README.md                 # Full documentation
+└── QUICKSTART.md             # Short instructions
 
----
 
-## 🛠 Updating
+⸻
 
-To pull the newest version:
+🛠 Updating
 
-```bash
-cd ~/audio-ducker
+To pull new updates and apply them:
+
+cd ~/CarPi
 git pull
 ./install.sh
-```
 
----
 
-## 🧹 Uninstalling
+⸻
 
-```bash
+🧹 Uninstalling
+
 ./uninstall.sh
-```
 
-This stops the service, disables it, and removes installed files (but preserves your repo clone).
+Removes:
+	•	systemd service
+	•	virtualenv
+	•	autoconnect scripts
+	•	logs
 
----
+(Your repo folder stays intact.)
 
-## 🛣 Roadmap
+⸻
 
-- Multiband Ducking  
-- AI Voice Recognition Input Trigger  
-- CarPlay / iOS Companion App  
-- MIDI control surface integration  
-- OTA Updates via the Web UI  
-- mDNS discovery (`carpi.local`)  
-- Car dashboard UI integration  
+🛣 Roadmap
 
----
+Planned Features
+	•	🎚️ Multiband Ducking
+	•	🤖 AI-powered Voice-ID Routing Trigger
+	•	📱 iOS / CarPlay Companion App
+	•	🎛 MIDI/HID hardware control
+	•	📡 mDNS discovery (carpi.local)
+	•	🔄 OTA firmware & software updates
+	•	🚘 In-car UI integration (Qt6 / Flutter / React-CarPlay)
 
-## ❤️ Credits
+⸻
 
-Built with:
-- Python + NumPy + Flask + Socket.IO  
-- JACK / PipeWire  
-- Chart.js  
-- Tailwind  
-- Raspberry Pi  
+❤️ Credits
+
+Built using:
+	•	Python + Flask + NumPy
+	•	JACK / PipeWire
+	•	Socket.IO
+	•	Chart.js
+	•	Raspberry Pi OS
+	•	❤️ plus way too much coffee
+
