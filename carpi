@@ -25,19 +25,35 @@ Usage:
   carpi health           Run health check script (if installed)
   carpi open-ui          Print URL for web UI
   carpi version          Show app version info from /api/version
+  carpi update           Pull latest from Git and rerun install.sh
 
 EOF
 }
 
 # Discover UI host (very simple)
 ui_host() {
-    # Prefer the Pi's hostname
+    # Prefer the Pi's LAN IP
     local host
     host=$(hostname -I 2>/dev/null | awk '{print $1}')
-    if [[ -z "${host:-}" ]]; then
+    if [ -z "${host:-}" ]; then
         host="localhost"
     fi
     echo "http://$host:${CARPI_PORT:-$DEFAULT_PORT}"
+}
+
+# Helper: curl JSON and pretty-print if jq exists
+curl_json() {
+    local url="$1"
+    if command -v curl >/dev/null 2>&1; then
+        if command -v jq >/dev/null 2>&1; then
+            curl -sS "$url" | jq .
+        else
+            curl -sS "$url"
+        fi
+    else
+        echo "curl not found; please install curl." >&2
+        return 1
+    fi
 }
 
 cmd="${1:-}"
@@ -46,30 +62,42 @@ case "$cmd" in
     status)
         systemctl --user status "$SERVICE_NAME"
         ;;
+
     restart)
         systemctl --user restart "$SERVICE_NAME"
         systemctl --user status "$SERVICE_NAME" --no-pager --lines=5
         ;;
+
     stop)
         systemctl --user stop "$SERVICE_NAME"
         ;;
+
     start)
         systemctl --user start "$SERVICE_NAME"
         systemctl --user status "$SERVICE_NAME" --no-pager --lines=5
         ;;
+
     logs)
         lines="${2:-100}"
         tail -n "$lines" "$LOG_FILE"
         ;;
+
     metrics)
-        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/metrics" | jq .
+        curl_json "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/metrics"
         ;;
+
     status-json)
-        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/status" | jq .
+        curl_json "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/status"
         ;;
+
     settings)
-        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/settings" | jq .
+        curl_json "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/settings"
         ;;
+
+    version)
+        curl_json "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/version"
+        ;;
+
     health)
         if [[ -x "$HOME/health_check.sh" ]]; then
             "$HOME/health_check.sh"
@@ -80,17 +108,48 @@ case "$cmd" in
             exit 1
         fi
         ;;
+
     open-ui)
         url="$(ui_host)"
         echo "Open this in your browser:"
         echo "  $url"
         ;;
-    version)
-        curl -sS "http://localhost:${CARPI_PORT:-$DEFAULT_PORT}/api/version" | jq .
+
+    update)
+        echo ">>> Updating CarPi in $APP_DIR"
+
+        if [ ! -d "$APP_DIR" ]; then
+            echo "Error: app directory not found: $APP_DIR" >&2
+            exit 1
+        fi
+
+        cd "$APP_DIR"
+
+        if [ -d .git ]; then
+            echo ">>> git fetch --all"
+            git fetch --all
+
+            echo ">>> git pull --ff-only"
+            git pull --ff-only
+        else
+            echo "Warning: $APP_DIR is not a git repo; skipping git pull." >&2
+        fi
+
+        if [ -x ./install.sh ]; then
+            echo ">>> Running install.sh"
+            ./install.sh
+        else
+            echo "Error: install.sh not found or not executable in $APP_DIR" >&2
+            exit 1
+        fi
+
+        echo ">>> Update complete."
         ;;
+
     ""|-h|--help|help)
         usage
         ;;
+
     *)
         echo "Unknown command: $cmd" >&2
         usage
