@@ -75,7 +75,7 @@ sudo reboot
 After reboot:
 
 ```bash
-./validate_reboot.sh
+./reboot_check.sh
 ```
 
 Should show ✔ ready, ✔ service running, ✔ audio connected.
