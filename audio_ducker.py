@@ -7,9 +7,11 @@ Audio Ducking System for Raspberry Pi
   * Auto-routing (MS210x -> secondary, Chromium/CarPlay -> primary, Fosi Q6 outputs)
   * Connection watchdog that periodically re-applies connections
   * /api/autoconnect endpoint for UI button
+  * /api/update endpoint for git pull + reinstall
 """
 
 import os
+import subprocess
 import time
 import json
 import threading
@@ -573,6 +575,51 @@ def api_autoconnect():
         return jsonify({"status": "ok", **result})
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/api/update", methods=["POST"])
+def api_update():
+    """
+    Pull latest code from Git and re-run install.sh.
+    Returns JSON status + combined output.
+    """
+    import subprocess
+    
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    def run_cmd(cmd, cwd=None):
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        return result.returncode, result.stdout
+    
+    # 1) git pull
+    code_git, out_git = run_cmd(["git", "pull", "--ff-only"], cwd=repo_dir)
+    if code_git != 0:
+        return jsonify({
+            "status": "error",
+            "step": "git_pull",
+            "output": out_git,
+        }), 500
+    
+    # 2) ./install.sh
+    install_path = os.path.join(repo_dir, "install.sh")
+    code_inst, out_inst = run_cmd(["bash", install_path], cwd=repo_dir)
+    if code_inst != 0:
+        return jsonify({
+            "status": "error",
+            "step": "install",
+            "output": out_inst,
+        }), 500
+    
+    return jsonify({
+        "status": "ok",
+        "output": out_git + "\n" + out_inst,
+    })
 
 
 # -----------------------------------------------------------------------------
