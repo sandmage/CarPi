@@ -17,6 +17,7 @@ if [[ ! -d "$VENV_DIR" ]]; then
 fi
 
 echo "[2/5] Installing Python dependencies..."
+# shellcheck disable=SC1090
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
 pip install flask flask-socketio eventlet numpy jack-client
@@ -27,12 +28,12 @@ echo "[3/5] Installing systemd user service..."
 cat > "$UNIT_DIR/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=Audio Ducking System (CarPi)
-After=default.target
+After=pipewire.service wireplumber.service
 
 [Service]
 Type=simple
-ExecStart=$VENV_DIR/bin/python $APP_DIR/audio_ducker.py
 WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/pw-jack $VENV_DIR/bin/python $APP_DIR/audio_ducker.py
 Restart=on-failure
 RestartSec=3
 Environment=CARPI_PORT=${PORT}
@@ -42,10 +43,14 @@ WantedBy=default.target
 EOF
 
 echo "[4/5] Installing carpi CLI..."
-cp "$APP_DIR/carpi" "$HOME/.local/bin/" 2>/dev/null || true
-chmod +x "$HOME/.local/bin/carpi" 2>/dev/null || true
+mkdir -p "$HOME/.local/bin"
+if [[ -f "$APP_DIR/carpi" ]]; then
+    cp "$APP_DIR/carpi" "$HOME/.local/bin/" || true
+    chmod +x "$HOME/.local/bin/carpi" || true
+fi
 
-if ! grep -q 'LOCAL/bin' "$HOME/.bashrc" 2>/dev/null; then
+# Ensure ~/.local/bin is on PATH for future shells
+if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 
