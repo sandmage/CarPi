@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve the directory where install.sh lives
+# Resolve the directory where install.sh lives and treat that as APP_DIR
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$SCRIPT_DIR"
 VENV_DIR="$APP_DIR/venv"
@@ -24,7 +24,9 @@ else
 fi
 
 $SUDO apt-get update -y
+$Sudo apt-get install -y git python3-pip python3-venv
 $SUDO apt-get install -y nginx avahi-daemon
+
 
 # ------------------------------------------------------------------------------
 # [1/6] Python venv
