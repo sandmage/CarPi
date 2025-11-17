@@ -4,8 +4,9 @@
 
 set -euo pipefail
 
+# This will be replaced by install.sh
+APP_DIR="__CARPI_APP_DIR__"
 SERVICE_NAME="audio-ducker"
-APP_DIR="$HOME/audio-ducker"
 LOG_FILE="$APP_DIR/audio-ducker.log"
 DEFAULT_PORT="5000"
 
