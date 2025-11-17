@@ -54,17 +54,15 @@ echo "[3/6] Installing systemd user service..."
 cat > "$UNIT_DIR/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=Audio Ducking System (CarPi)
-After=default.target
+After=pipewire.service wireplumber.service default.target
 
 [Service]
 Type=simple
-ExecStart=$VENV_DIR/bin/python $APP_DIR/audio_ducker.py
+ExecStart=/usr/bin/pw-jack $VENV_DIR/bin/python $APP_DIR/audio_ducker.py
 WorkingDirectory=$APP_DIR
 Restart=on-failure
 RestartSec=3
 Environment=CARPI_PORT=${PORT}
-# Use pw-jack so we talk to PipeWire's JACK server
-Environment=PW_JACK=1
 
 [Install]
 WantedBy=default.target
