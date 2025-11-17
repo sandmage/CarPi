@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="$HOME/audio-ducker"
+# Resolve the directory where install.sh lives
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$SCRIPT_DIR"
 VENV_DIR="$APP_DIR/venv"
 UNIT_DIR="$HOME/.config/systemd/user"
 SERVICE_NAME="audio-ducker"
