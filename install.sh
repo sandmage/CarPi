@@ -51,6 +51,17 @@ deactivate
 # ------------------------------------------------------------------------------
 echo "[3/6] Installing systemd user service..."
 
+# Small wrapper so we can safely call pw-jack
+cat > "$APP_DIR/run_carpi.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run the CarPi app under pw-jack so it attaches to PipeWire's JACK
+exec pw-jack "$VENV_DIR/bin/python" "$APP_DIR/audio_ducker.py"
+EOF
+
+chmod +x "$APP_DIR/run_carpi.sh"
+
 cat > "$UNIT_DIR/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=Audio Ducking System (CarPi)
@@ -58,7 +69,7 @@ After=pipewire.service wireplumber.service default.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/pw-jack $VENV_DIR/bin/python $APP_DIR/audio_ducker.py
+ExecStart=$APP_DIR/run_carpi.sh
 WorkingDirectory=$APP_DIR
 Restart=on-failure
 RestartSec=3
