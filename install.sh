@@ -23,8 +23,8 @@ else
     SUDO=""
 fi
 
-$SUDO apt-get update -y
-$Sudo apt-get install -y git python3-pip python3-venv
+$SUDO apt-get update -y\
+$SUDO apt-get install -y git python3-pip python3-venv
 $SUDO apt-get install -y nginx avahi-daemon
 
 
@@ -126,8 +126,14 @@ $SUDO systemctl restart avahi-daemon
 # ------------------------------------------------------------------------------
 echo "[6/6] Installing carpi CLI..."
 mkdir -p "$HOME/.local/bin"
-cp "$APP_DIR/carpi" "$HOME/.local/bin/" 2>/dev/null || true
-chmod +x "$HOME/.local/bin/carpi" 2>/dev/null || true
+
+if [[ -f "$APP_DIR/carpi" ]]; then
+    # Inject the real APP_DIR path into the installed CLI
+    sed "s|^APP_DIR=.*$|APP_DIR=\"${APP_DIR}\"|" "$APP_DIR/carpi" > "$HOME/.local/bin/carpi"
+    chmod +x "$HOME/.local/bin/carpi"
+else
+    echo "Warning: carpi script not found in $APP_DIR; skipping CLI install."
+fi
 
 # Make sure ~/.local/bin is on PATH
 if ! grep -q '\.local/bin' "$HOME/.bashrc" 2>/dev/null; then
