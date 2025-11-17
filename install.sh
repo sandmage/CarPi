@@ -14,9 +14,9 @@ echo "=== CarPi Audio Ducker Installer ==="
 mkdir -p "$APP_DIR" "$UNIT_DIR"
 
 # ------------------------------------------------------------------------------
-# [0/6] System packages: nginx + avahi-daemon for mDNS + HTTP on port 80
+# [0/6] System packages: JACK, PipeWire-JACK, nginx, avahi-daemon, tools
 # ------------------------------------------------------------------------------
-echo "[0/6] Installing system packages (nginx, avahi-daemon)..."
+echo "[0/6] Installing system packages (JACK, PipeWire-JACK, nginx, avahi-daemon)..."
 if command -v sudo >/dev/null 2>&1; then
     SUDO="sudo"
 else
@@ -24,9 +24,16 @@ else
 fi
 
 $SUDO apt-get update -y
-$SUDO apt-get install -y git python3-pip python3-venv
-$SUDO apt-get install -y nginx avahi-daemon
-$SUDO apt-get install -y pipewire-jack
+$SUDO apt-get install -y \
+  git \
+  python3-pip \
+  python3-venv \
+  curl \
+  jq \
+  jackd2 \
+  pipewire-jack \
+  nginx \
+  avahi-daemon
 
 
 # ------------------------------------------------------------------------------
