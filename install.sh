@@ -9,13 +9,32 @@ PORT=5000
 
 echo "=== CarPi Audio Ducker Installer ==="
 
-mkdir -p "$APP_DIR" "$UNIT_DIR" "$HOME/.local/bin"
+mkdir -p "$APP_DIR" "$UNIT_DIR"
 
+# ------------------------------------------------------------------------------
+# [0/6] System packages: nginx + avahi-daemon for mDNS + HTTP on port 80
+# ------------------------------------------------------------------------------
+echo "[0/6] Installing system packages (nginx, avahi-daemon)..."
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+else
+    SUDO=""
+fi
+
+$SUDO apt-get update -y
+$SUDO apt-get install -y nginx avahi-daemon
+
+# ------------------------------------------------------------------------------
+# [1/6] Python venv
+# ------------------------------------------------------------------------------
 echo "[1/6] Creating virtualenv (if missing)..."
 if [[ ! -d "$VENV_DIR" ]]; then
     python3 -m venv "$VENV_DIR"
 fi
 
+# ------------------------------------------------------------------------------
+# [2/6] Python deps
+# ------------------------------------------------------------------------------
 echo "[2/6] Installing Python dependencies..."
 # shellcheck disable=SC1090
 source "$VENV_DIR/bin/activate"
@@ -23,6 +42,9 @@ pip install --upgrade pip
 pip install flask flask-socketio eventlet numpy jack-client
 deactivate
 
+# ------------------------------------------------------------------------------
+# [3/6] systemd user service
+# ------------------------------------------------------------------------------
 echo "[3/6] Installing systemd user service..."
 
 cat > "$UNIT_DIR/${SERVICE_NAME}.service" <<EOF
@@ -32,40 +54,91 @@ After=default.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/pw-jack $VENV_DIR/bin/python $APP_DIR/audio_ducker.py
+ExecStart=$VENV_DIR/bin/python $APP_DIR/audio_ducker.py
 WorkingDirectory=$APP_DIR
 Restart=on-failure
 RestartSec=3
 Environment=CARPI_PORT=${PORT}
+# Use pw-jack so we talk to PipeWire's JACK server
+Environment=PW_JACK=1
 
 [Install]
 WantedBy=default.target
 EOF
 
-echo "[4/6] Installing carpi CLI..."
+# ------------------------------------------------------------------------------
+# [4/6] Nginx reverse proxy on port 80 -> 127.0.0.1:5000
+# ------------------------------------------------------------------------------
+echo "[4/6] Configuring nginx reverse proxy..."
+
+$SUDO tee /etc/nginx/sites-available/carpi >/dev/null <<EOF
+server {
+    listen 80;
+    server_name carpi.local _;
+
+    location / {
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+EOF
+
+# Enable site and disable default
+$SUDO ln -sf /etc/nginx/sites-available/carpi /etc/nginx/sites-enabled/carpi
+$SUDO rm -f /etc/nginx/sites-enabled/default || true
+
+$SUDO systemctl restart nginx
+
+# ------------------------------------------------------------------------------
+# [5/6] Avahi mDNS service for carpi.local
+# ------------------------------------------------------------------------------
+echo "[5/6] Configuring Avahi mDNS (carpi.local)..."
+
+$SUDO mkdir -p /etc/avahi/services
+$SUDO tee /etc/avahi/services/carpi.service >/dev/null <<EOF
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">%h CarPi</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>80</port>
+    <txt-record>path=/</txt-record>
+  </service>
+</service-group>
+EOF
+
+$SUDO systemctl restart avahi-daemon
+
+# ------------------------------------------------------------------------------
+# [6/6] carpi CLI + optional health timer
+# ------------------------------------------------------------------------------
+echo "[6/6] Installing carpi CLI..."
+mkdir -p "$HOME/.local/bin"
 cp "$APP_DIR/carpi" "$HOME/.local/bin/" 2>/dev/null || true
 chmod +x "$HOME/.local/bin/carpi" 2>/dev/null || true
 
-# Ensure ~/.local/bin is on PATH for future shells
+# Make sure ~/.local/bin is on PATH
 if ! grep -q '\.local/bin' "$HOME/.bashrc" 2>/dev/null; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 
-echo "[5/6] (Optional) Installing health timer..."
-# Only if health_check.sh exists
-if [[ -f "$HOME/health_check.sh" || -f "$APP_DIR/health_check.sh" ]]; then
-    HEALTH_SCRIPT="\$HOME/health_check.sh"
-    if [[ ! -f "$HOME/health_check.sh" && -f "$APP_DIR/health_check.sh" ]]; then
-        HEALTH_SCRIPT="$APP_DIR/health_check.sh"
-    fi
-
+echo "Setting up optional health timer (if health_check.sh exists)..."
+if [[ -f "$HOME/health_check.sh" ]]; then
     cat > "$UNIT_DIR/carpi-health.service" <<EOF
 [Unit]
 Description=CarPi health check
 
 [Service]
 Type=oneshot
-ExecStart=${HEALTH_SCRIPT}
+ExecStart=%h/health_check.sh
 EOF
 
     cat > "$UNIT_DIR/carpi-health.timer" <<EOF
@@ -85,32 +158,6 @@ EOF
     systemctl --user enable --now carpi-health.timer || true
 fi
 
-echo "[6/6] Enabling mDNS (Avahi) for carpi.local..."
-if command -v sudo >/dev/null 2>&1; then
-    sudo apt-get update -y
-    sudo apt-get install -y avahi-daemon avahi-utils
-
-    sudo mkdir -p /etc/avahi/services
-
-    sudo tee /etc/avahi/services/carpi.service >/dev/null <<EOF
-<?xml version="1.0" standalone='no'?>
-<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<service-group>
-  <name replace-wildcards="yes">%h CarPi</name>
-  <service>
-    <type>_http._tcp</type>
-    <port>${PORT}</port>
-    <txt-record>path=/</txt-record>
-  </service>
-</service-group>
-EOF
-
-    sudo systemctl restart avahi-daemon || true
-    echo "mDNS enabled: try http://$(hostname).local:${PORT}"
-else
-    echo "sudo not available — skipping mDNS setup."
-fi
-
 echo "Reloading systemd user units..."
 systemctl --user daemon-reload
 systemctl --user enable --now "${SERVICE_NAME}.service"
@@ -121,9 +168,8 @@ echo "Service status:"
 systemctl --user status "${SERVICE_NAME}.service" --no-pager --lines=5
 
 echo
-echo "Web UI should be available at:"
-echo "  http://<pi-ip>:${PORT}"
-echo "  or http://$(hostname).local:${PORT} (if mDNS works on your network)"
+echo "You should now be able to open:"
+echo "  http://carpi.local"
 echo
 echo "CLI (if PATH includes ~/.local/bin):"
 echo "  carpi status"
