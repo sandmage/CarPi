@@ -122,6 +122,10 @@ http://localhost:5000
 
 **From another device on your network:**
 ```
+http://carpi.local
+```
+
+```
 http://<raspberry-pi-ip>:5000
 ```
 
@@ -324,6 +328,11 @@ cd ~/CarPi
 git pull
 ./install.sh
 ```
+or
+
+```bash
+carpi update
+```
 
 Your settings will be preserved.
 
@@ -379,7 +388,6 @@ CarPi/
 - [ ] 🤖 **AI Voice Detection** – Smarter routing based on voice activity
 - [ ] 📱 **iOS/CarPlay App** – Native mobile interface
 - [ ] 🎛️ **MIDI/HID Control** – Physical knobs and buttons support
-- [ ] 📡 **mDNS Support** – Access via `carpi.local`
 - [ ] 🔄 **OTA Updates** – Automatic firmware and software updates
 - [ ] 🚘 **CarPlay UI Integration** – Native in-dash interface
 - [ ] 📊 **Advanced Analytics** – Audio quality metrics and history
