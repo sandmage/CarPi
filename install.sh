@@ -23,7 +23,7 @@ else
     SUDO=""
 fi
 
-$SUDO apt-get update -y\
+$SUDO apt-get update -y
 $SUDO apt-get install -y git python3-pip python3-venv
 $SUDO apt-get install -y nginx avahi-daemon
 
